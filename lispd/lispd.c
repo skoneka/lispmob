@@ -1,9 +1,9 @@
 /*
- * lispd.c 
+ * lispd.c
  *
  * This file is part of LISP Mobile Node Implementation.
  * lispd Implementation
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -28,6 +28,7 @@
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Albert Cabellos   <acabello@ac.upc.edu>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
@@ -115,14 +116,26 @@ nlsock_handle nlh;
  */
 int     map_register_timer_fd           = 0;
 
-/* 
+/*
  * Interface on which control messages
  * are sent
  */
 iface_list_elt *ctrl_iface              = NULL;
 lisp_addr_t source_rloc;
 
-int main(int argc, char **argv) 
+
+
+//modified by arnatal
+/*
+ *	For NAT traversal
+ */
+
+int nat_aware = TRUE;
+int behind_nat = UNKNOWN;
+lisp_addr_t rtr;
+
+
+int main(int argc, char **argv)
 {
 
     /*
@@ -137,7 +150,7 @@ int main(int argc, char **argv)
     /*
      *  Initialize the random number generator
      */
-     
+
     iseed = (unsigned int) time (NULL);
     srandom(iseed);
 
@@ -223,7 +236,7 @@ int main(int argc, char **argv)
      * now build the v4/v6 receive sockets
      */
 
-    if (build_receive_sockets() == 0) 
+    if (build_receive_sockets() == 0)
         exit(EXIT_FAILURE);
 
     /*
@@ -241,7 +254,7 @@ int main(int argc, char **argv)
         syslog(LOG_INFO, "Starting the daemonizing process");
         if ((pid = fork()) < 0) {
             exit(EXIT_FAILURE);
-        } 
+        }
         umask(0);
         if (pid > 0)
             exit(EXIT_SUCCESS);
@@ -292,15 +305,33 @@ int main(int argc, char **argv)
     if (!dump_routing_table(AF_INET, RT_TABLE_MAIN))
         syslog(LOG_INFO, "Dumping main routing table failed");
 
+    //modified by arnatal
     /*
-     *  Register to the Map-Server(s)
+     *  Check if we want to execute NAT aware code or not
      */
 
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Could not map register AF_INET6 with Map Servers");
+    if (nat_aware == TRUE) {
 
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Could not map register AF_INET with Map Servers");
+        /*
+         *  Discover if we are behind NAT. Send Info-Request
+         */
+
+		nat_info_request();
+
+    } else {
+
+        /*
+         *  Normal register to the Map-Server(s)
+         */
+
+        if (!map_register(AF6_database))
+            syslog(LOG_INFO,
+                   "Could not map register AF_INET6 with Map Servers");
+
+        if (!map_register(AF4_database))
+            syslog(LOG_INFO,
+                   "Could not map register AF_INET with Map Servers");
+    }
 
     event_loop();
     syslog(LOG_INFO, "Exiting...");         /* event_loop returned bad */
@@ -348,7 +379,7 @@ void event_loop(void)
             process_lisp_msg(v6_receive_fd, AF_INET6);
         if (FD_ISSET(netlink_fd,&readfds))
             process_netlink_msg();
-        if (FD_ISSET(nlh.fd,&readfds)) 
+        if (FD_ISSET(nlh.fd,&readfds))
                 process_netlink_iface();
         if (FD_ISSET(map_register_timer_fd,&readfds))
                 periodic_map_register();

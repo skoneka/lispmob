@@ -27,6 +27,7 @@
  *    David Meyer       <dmm@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
@@ -1388,6 +1389,13 @@ int retrieve_lisp_msg(s, packet, from, afi)
             return (0);
         break;
     case LISP_MAP_REGISTER:     //Got Map-Register, silently ignore
+        break;
+	case LISP_INFO_NAT:      //Got Info-Request/Info-Replay
+#ifdef DEBUG
+        syslog(LOG_DAEMON, "Received a LISP Info-Request/Info-Replay message");
+#endif
+        if(!process_info_nat_msg(packet, s, from, afi))
+            return (0);
         break;
     case LISP_MAP_NOTIFY:
 #ifdef DEBUG

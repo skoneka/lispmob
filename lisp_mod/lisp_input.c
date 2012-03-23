@@ -188,7 +188,8 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
 
     // Detect non-encapsulated lisp control messages
     if (ntohs(udh->dest) == globals.udp_encap_port &&
-        ntohs(udh->source) != LISP_CONTROL_PORT &&
+        /* XXX Next line commented because of Data Map Notify */
+        //ntohs(udh->source) != LISP_CONTROL_PORT &&
         (first_byte != echo_signature)) {
 
       // LISP header
@@ -219,7 +220,10 @@ unsigned int lisp_input(unsigned int hooknum, struct sk_buff *packet_buf,
       check_locator_bits(lisp_hdr, iph, source_locator);
 
       eid_int = dev_get_by_name (&init_net, LISP_EID_INTERFACE);
-      if (eid_int) {
+      
+	  //modified by arnatal
+      /* if (eid_int) { */
+	  if ((eid_int) && (lisp_hdr->instance_id != 1)) { /* Poor special Instance ID discriminator FIXME */
           dev_put (eid_int);
           packet_buf->dev = eid_int;
           skb_dst_drop (packet_buf);
