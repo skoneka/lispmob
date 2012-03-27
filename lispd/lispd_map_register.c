@@ -28,6 +28,7 @@
  *    David Meyer       <dmm@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu> 
  *
  */
 
@@ -258,8 +259,8 @@ int send_map_register(ms, mrp, mrp_len)
 /*
  *  get_locator_chain_length
  *
- *  Compute the sum of the lengths of the locators 
- *  in the chain so we can allocate a chunk of memory for 
+ *  Compute the sum of the lengths of the locators
+ *  in the chain so we can allocate a chunk of memory for
  *  the packet....
  */
 
@@ -288,7 +289,7 @@ int get_locator_length(locator_chain_elt)
     return(sum);
 }
 
-
+//modified by arnatal
 void start_periodic_map_register(void)
 {
     struct itimerspec interval;
@@ -298,11 +299,22 @@ void start_periodic_map_register(void)
     interval.it_value.tv_sec     = 1;
     interval.it_value.tv_nsec    = 0;
 
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Could not map register AF_INET6 with Map Servers");
+    if (nat_aware == TRUE) {
 
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Could not map register AF_INET with Map Servers");
+        behind_nat = UNKNOWN;
+
+        /* Info Request */
+        nat_info_request();
+
+
+    } else {
+
+        if (!map_register(AF6_database))
+            syslog(LOG_INFO, "Could not map register AF_INET6 with Map Servers");
+
+        if (!map_register(AF4_database))
+            syslog(LOG_INFO, "Could not map register AF_INET with Map Servers");
+    }
 
     syslog(LOG_INFO, "Starting timer to send map register every %d seconds",
             MAP_REGISTER_INTERVAL);
@@ -328,7 +340,37 @@ void stop_periodic_map_register(void)
         syslog(LOG_INFO, "timerfd_settime: %s", strerror(errno));
 }
 
+//modified by arnatal
+inline void explicit_map_register(void)
+{
+    if ((nat_aware == TRUE) && (behind_nat == TRUE)) {
+        /* ECM Map Register */
+        if (ERROR == add_rtr_as_default_in_map_cache(&rtr)){
+			syslog(LOG_INFO, "explicit_map_register: Error adding default RTR");
+		}
+        ecm_map_register();
+        return;
+    }
 
+    if ((nat_aware == TRUE) && (behind_nat == UNKNOWN)) {
+        /* Info Request */
+        nat_info_request();
+        return;
+    }
+
+    /*
+     *  Not NAT aware, or NAT aware but not behind NAT
+     */
+
+    if (!map_register(AF6_database))
+        syslog(LOG_INFO, "Periodic AF_INET6 map register failed");
+
+    if (!map_register(AF4_database))
+        syslog(LOG_INFO, "Periodic AF_INET map register failed");
+
+}
+
+//modified by arnatal
 inline void periodic_map_register(void)
 {
     ssize_t s;
@@ -337,11 +379,64 @@ inline void periodic_map_register(void)
     if((s = read(map_register_timer_fd, &num_exp, sizeof(num_exp))) != sizeof(num_exp))
         syslog(LOG_INFO, "read (periodic_map_register): %s", strerror(errno));
 
-    if (!map_register(AF6_database))
-        syslog(LOG_INFO, "Periodic AF_INET6 map register failed");
+    explicit_map_register();
+}
 
-    if (!map_register(AF4_database))
-        syslog(LOG_INFO, "Periodic AF_INET map register failed");
+
+
+
+
+//modified by arnatal
+int build_and_send_map_register(locator_chain, map_server, source_addr)
+
+lispd_locator_chain_t *locator_chain;
+lispd_map_server_list_t *map_server;
+lisp_addr_t *source_addr;
+
+{
+    int packet_len;
+
+    lispd_pkt_map_register_t *map_register_pkt;
+
+
+
+    if ((map_register_pkt = build_map_register_pkt(locator_chain)) == NULL) {
+        syslog(LOG_DAEMON, "Couldn't build map register packet");
+        return (ERROR);
+    }
+
+    packet_len = locator_chain->mrp_len;
+
+    map_register_pkt->proxy_reply = map_server->proxy_reply;
+
+	/*
+	 * TODO Update with function 'complete_auth_fields'
+	 */
+    if (!(compute_sha1_hmac(map_server->key,
+                            map_register_pkt,
+                            packet_len,
+                            map_register_pkt->auth_data,
+                            get_auth_data_len(map_server->key_type)))) {
+        free(map_register_pkt);
+        syslog(LOG_DAEMON, "HMAC failed for map register");
+        return (ERROR);
+    }
+
+    if (!send_packet(map_register_pkt,
+                     packet_len,
+                     source_addr,
+                     LISP_CONTROL_PORT,
+                     map_server->address,
+                     LISP_CONTROL_PORT)) {
+        syslog(LOG_DAEMON, "Couldn't send map register for %s",
+               locator_chain->eid_name);
+        free(map_register_pkt);
+        return (ERROR);
+    }
+
+
+    free(map_register_pkt);
+    return (NO_ERROR);
 }
 
 

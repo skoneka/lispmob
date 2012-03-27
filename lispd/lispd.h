@@ -3,7 +3,7 @@
  *
  * This file is part of LISP Mobile Node Implementation.
  * Definitions for lispd.
- * 
+ *
  * Copyright (C) 2011 Cisco Systems, Inc, 2011. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@
  *    David Meyer       <dmm@cisco.com>
  *    Preethi Natarajan <prenatar@cisco.com>
  *    Lorand Jakab      <ljakab@ac.upc.edu>
+ *    Alberto Rodriguez Natal <arnatal@ac.upc.edu>
  *
  */
 
@@ -58,6 +59,7 @@
 #include <linux/rtnetlink.h>
 #include "lisp_ipc.h"
 #include "patricia/patricia.h"
+
 
 /*
  *  Protocols constants related with timeouts
@@ -129,7 +131,7 @@
 #define MAX_EPHEMERAL_PORT  65535
 
 #define DEFAULT_MAP_REQUEST_RETRIES     3
-#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however, 
+#define DEFAULT_MAP_REGISTER_TIMEOUT    10  /* PN: expected to be in minutes; however,
                                              * lisp_mod treats this as seconds instead of
                                              * minutes
                                              */
@@ -142,16 +144,39 @@
 #define DEFAULT_DATA_CACHE_TTL          60  /* seconds */
 #define DEFAULT_SELECT_TIMEOUT          1000/* ms */
 
+//modified by arnatal (until NAT_NO_REPLY)
+#define DEFAULT_INFO_REQUEST_TIMEOUT    10
+#define DEFAULT_INFO_REPLY_TIMEOUT      10
+
+#define FIELD_AFI_LEN                    2
+#define FIELD_PORT_LEN                   2
+
+#define ERROR                          BAD
+#define NO_ERROR                       GOOD
+
+#define TRUE                             1
+#define FALSE                            0
+#define UNKNOWN                         -1
+
+#define NAT_REPLY                        1
+#define NAT_NO_REPLY                     0
+
+
+
 /*
  * LISP Types
  */
+
+//modified by arnatal
 
 #define LISP_MAP_REQUEST                1
 #define LISP_MAP_REPLY                  2
 #define LISP_MAP_REGISTER               3
 #define LISP_MAP_NOTIFY                 4
 #define LISP_ENCAP_CONTROL_TYPE         8
+#define LISP_INFO_NAT                   7
 #define LISP_CONTROL_PORT               4342
+#define LISP_DATA_PORT               	4341
 
 /*
  *  Map Reply action codes
@@ -163,9 +188,20 @@
 #define LISP_ACTION_SEND_MAP_REQUEST    3
 
 
+//modified by arnatal
 #define LISP_AFI_IP                     1
 #define LISP_AFI_IPV6                   2
+#define LISP_AFI_LCAF                   16387
 #define LISP_IP_MASK_LEN                32
+
+
+//modified by arnatal
+/*
+ * LISP LCAF Types
+ */
+
+#define LISP_LCAF_NULL                  0
+#define LISP_LCAF_NAT                   7
 
 /*
  *  locator_types
@@ -237,7 +273,7 @@ typedef struct {
     uint8_t         weight;
     uint8_t         mpriority;
     uint8_t         mweight;
-    uint32_t        ttl;    
+    uint32_t        ttl;
     uint8_t         actions;
 } lispd_map_cache_entry_t;
 
@@ -268,6 +304,16 @@ typedef struct _lispd_addr_list_t {
     lisp_addr_t                 *address;
     struct _lispd_addr_list_t   *next;
 } lispd_addr_list_t;
+
+
+//modified by arnatal
+/*
+ *  generic list of addresses (lisp_addr_t instead of lispd_addr_t)
+ */
+typedef struct _lisp_addr_list_t {
+    lisp_addr_t *address;
+    struct _lisp_addr_list_t *next;
+} lisp_addr_list_t;
 
 
 typedef struct _lispd_map_server_list_t {
@@ -834,6 +880,197 @@ typedef struct {
     uint8_t echo_nonce;     // set Echo-nonce bit
 } map_reply_opts;
 
+
+//modified by arnatal
+/*
+ * LISP Data header structure
+ */
+
+typedef struct lisp_data_hdr {
+#ifdef LITTLE_ENDIAN
+    uint8_t rflags:3;
+    uint8_t instance_id:1;
+    uint8_t map_version:1;
+    uint8_t echo_nonce:1;
+    uint8_t lsb:1;
+    uint8_t nonce_present:1;
+#else
+    uint8_t nonce_present:1;
+    uint8_t lsb:1;
+    uint8_t echo_nonce:1;
+    uint8_t map_version:1;
+    uint8_t instance_id:1;
+    uint8_t rflags:3;
+#endif
+    uint8_t nonce[3];
+    uint32_t lsb_bits;
+} lisp_data_hdr_t;
+
+/*
+ * LISP Control header structure
+ */
+
+typedef struct lisp_encap_control_hdr {
+#ifdef LITTLE_ENDIAN
+    uint8_t reserved:3;
+    uint8_t s_bit:1;
+    uint8_t type:4;
+#else
+    uint8_t type:4;
+    uint8_t s_bit:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2[3];
+} lisp_encap_control_hdr_t;
+
+
+//modified by arnatal
+
+
+/*
+  0                   1                   2                   3
+  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |Type=7 |              Reserved                                 |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                         Nonce . . .                           |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                      . . . Nonce                              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |              Key ID           |  Authentication Data Length   |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  ~                     Authentication Data                       ~
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                              TTL                              |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |                          EID-prefix                           |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |           AFI = 16387         |    Rsvd1      |     Flags     |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  |    Type = 0     |     Rsvd2   |             4 + n             |
+  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                LISP Info-Request Message Format
+
+ */
+
+/* NAT traversal Info-Request message
+ * auth_data may be variable length in the future
+ */
+
+typedef struct lispd_pkt_info_nat_t_ {
+#ifdef LITTLE_ENDIAN
+    uint8_t reserved1:3;
+    uint8_t rbit:1;
+    uint8_t lisp_type:4;
+#else
+    uint8_t lisp_type:4;
+    uint8_t rbit:1;
+    uint8_t reserved1:3;
+#endif
+    uint8_t reserved2;
+    uint16_t reserved3;
+
+    uint64_t nonce;
+    uint16_t key_id;
+    uint16_t auth_data_len;
+    uint8_t auth_data[LISP_SHA1_AUTH_DATA_LEN];
+} PACKED lispd_pkt_info_nat_t;
+
+/* EID fixed part of an Info-Request message
+ * variable length EID address follows
+ */
+
+typedef struct lispd_pkt_info_nat_eid_t_ {
+    uint32_t ttl;
+    uint8_t reserved;
+    uint8_t eid_mask_length;
+    uint16_t eid_prefix_afi;
+} PACKED lispd_pkt_info_nat_eid_t;
+
+/* LCAF part of an Info-Request message
+ *
+ */
+
+typedef struct lispd_pkt_info_request_lcaf_t_ {
+    uint16_t lcaf_afi;
+    uint8_t reserved1;
+    uint8_t flags;
+    uint8_t lcaf_type;
+    uint8_t reserved2;
+    uint16_t length;
+} PACKED lispd_pkt_info_request_lcaf_t;
+
+
+//modified by arnatal
+/*
+        0                   1                   2                   3
+        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |Type=8 |              Reserved                                 |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                         Nonce . . .                           |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                      . . . Nonce                              |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |            Key ID             |  Authentication Data Length   |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       ~                     Authentication Data                       ~
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                              TTL                              |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |   Reserved    | EID mask-len  |        EID-prefix-AFI         |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+       |                          EID-prefix                           |
+    +->+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  |           AFI = 16387         |    Rsvd1      |     Flags     |
+    |  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  |    Type = 7     |     Rsvd2   |             4 + n             |
+    |  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    N  |        MS UDP Port Number     |      ETR UDP Port Number      |
+    A  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    T  |              AFI = x          | Global ETR RLOC Address  ...  |
+       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    L  |              AFI = x          |       MS RLOC Address  ...    |
+    C  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    A  |              AFI = x          | Private ETR RLOC Address ...  |
+    F  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  |              AFI = x          |      RTR RLOC Address 1 ...   |
+    |  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    |  |              AFI = x          |       RTR RLOC Address n ...  |
+    +->+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+                      LISP Info-Reply Message Format
+ */
+
+/* NAT traversal Info-Reply message
+ * auth_data may be variable length in the future
+ *
+ * We use the same lispd_pkt_info_nat_t defined in the previous packet
+ */
+
+/* EID fixed part of a Info-Request message
+ * variable length EID address follows
+ *
+ * We use the same lispd_pkt_eid_nat_t defined in the previous packet
+ */
+
+/* Fixed part of NAT LCAF.
+ * Variable in number and length adresses follows
+ */
+
+typedef struct lispd_pkt_info_reply_lcaf_t_ {
+    uint16_t lcaf_afi;
+    uint8_t reserved1;
+    uint8_t flags;
+    uint8_t lcaf_type;
+    uint8_t reserved2;
+    uint16_t length;
+    uint16_t ms_udp_port;
+    uint16_t etr_udp_port;
+} PACKED lispd_pkt_info_reply_lcaf_t;
 
 /*
  * Editor modelines
