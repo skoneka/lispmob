@@ -128,6 +128,7 @@ void ecm_map_register(void)
 #endif
 
     build_and_send_ecm_map_register(locator_chain,
+                                    map_servers->proxy_reply,
                                     &(ctrl_iface->AF4_locators->head->db_entry->locator),
                                     map_servers->address,
                                     LISP_CONTROL_PORT,
@@ -892,12 +893,13 @@ unsigned int *control_encap_pkt_len;
 
 
 
-int build_and_send_ecm_map_register(locator_chain,inner_addr_from,inner_addr_dest,
+int build_and_send_ecm_map_register(locator_chain,proxy_reply,inner_addr_from,inner_addr_dest,
                                     inner_port_from,inner_port_dest,outer_addr_from,
                                     outer_addr_dest,outer_port_from,outer_port_dest,
                                     key_id,key)
 
 lispd_locator_chain_t *locator_chain;
+int proxy_reply;
 lisp_addr_t *inner_addr_from;
 lisp_addr_t *inner_addr_dest;
 unsigned int inner_port_from;
@@ -924,7 +926,7 @@ char *key;
     map_register_pkt_len = locator_chain->mrp_len;
 
     /* Map Server proxy reply */
-    /* map_register_pkt->proxy_reply = 1; */
+    map_register_pkt->proxy_reply = proxy_reply;
 
     complete_auth_fields(key_id,
                          &(map_register_pkt->key_id),

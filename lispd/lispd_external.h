@@ -192,6 +192,7 @@ extern void ecm_map_register(void);
 
 
 extern int build_and_send_ecm_map_register(lispd_locator_chain_t *locator_chain,
+                                           int proxy_reply,
                                            lisp_addr_t *inner_addr_from,
                                            lisp_addr_t *inner_addr_dest,
                                            unsigned int inner_port_from,
