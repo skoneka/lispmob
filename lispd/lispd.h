@@ -462,23 +462,19 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
 
 typedef struct lispd_pkt_map_register_t_ {
 #ifdef LITTLE_ENDIAN
+    uint8_t  rbit:1;
     uint8_t  ibit:1;
-    uint8_t  reserved1:2;
+    uint8_t  reserved1:1;
     uint8_t  proxy_reply:1;
     uint8_t  lisp_type:4;
 #else
     uint8_t  lisp_type:4;
     uint8_t  proxy_reply:1;
-    uint8_t  reserved1:2;
+    uint8_t  reserved1:1;
     uint8_t  ibit:1;
+    uint8_t  rbit:1;
 #endif
-#ifdef LITTLE_ENDIAN
-    uint8_t reserved2:7;
-    uint8_t rbit:1;
-#else
-    uint8_t rbit:1;
-    uint8_t reserved2:7;
-#endif	
+    uint8_t reserved2;	
 #ifdef LITTLE_ENDIAN
     uint8_t map_notify:1;
     uint8_t reserved3:7;
