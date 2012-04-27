@@ -928,6 +928,12 @@ char *key;
     /* Map Server proxy reply */
     map_register_pkt->proxy_reply = proxy_reply;
 
+    /* R bit always 1 for Map Registers sent to the RTR */
+    map_register_pkt->rbit = 1;
+
+    /* MN does not use xTR-ID for the momment */
+    map_register_pkt->ibit = 0;
+	
     complete_auth_fields(key_id,
                          &(map_register_pkt->key_id),
                          key,
@@ -935,14 +941,13 @@ char *key;
                          map_register_pkt_len,
                          &(map_register_pkt->auth_data));
 
-    ecm_map_register =
-        build_control_encap_pkt((uint8_t *) map_register_pkt,
-                                map_register_pkt_len,
-                                inner_addr_from,
-                                inner_addr_dest,
-                                inner_port_from,
-                                inner_port_dest,
-                                &ecm_map_register_len);
+    ecm_map_register = build_control_encap_pkt((uint8_t *) map_register_pkt,
+                                               map_register_pkt_len,
+                                               inner_addr_from,
+                                               inner_addr_dest,
+                                               inner_port_from,
+                                               inner_port_dest,
+                                               &ecm_map_register_len);
     free(map_register_pkt);
 
     if (ecm_map_register == NULL) {
