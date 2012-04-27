@@ -813,6 +813,9 @@ int get_addr_len(afi)
         return(sizeof(struct in_addr));
     case AF_INET6:
         return(sizeof(struct in6_addr));
+    //modified by arnatal 
+    case 0: /* AFI = 0 */
+        return(0);
     default:
         syslog(LOG_DAEMON, "get_addr_len: unknown AFI (%d)", afi);
         return(0);

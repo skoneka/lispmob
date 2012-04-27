@@ -94,6 +94,7 @@ lisp_addr_list_t *rtr_rloc_list;
     /* Extract the Private ETR RLOC */
 
     *private_etr_rloc = extract_lisp_address(ptr);
+    /* In this case this function should return afi = 0 */
 
     cumulative_add_length +=
         get_addr_len(private_etr_rloc->afi) + FIELD_AFI_LEN;
