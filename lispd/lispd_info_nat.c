@@ -196,7 +196,7 @@ lisp_addr_t *eid_prefix;
     *nonce = be64toh(hdr->nonce);       /* Requieres #include <endian.h>*/
     *key_id = ntohs(hdr->key_id);
     *auth_data_len = ntohs(hdr->auth_data_len);
-    *auth_data = (uint8_t *) & (hdr->auth_data);
+    *auth_data = (uint8_t *) &(hdr->auth_data);
 
 
     /*

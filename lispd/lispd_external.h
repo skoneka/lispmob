@@ -214,6 +214,13 @@ extern int compare_lisp_addresses(lisp_addr_t *add1, lisp_addr_t *add2);
 
 extern int add_rtr_as_default_in_map_cache(lisp_addr_t *rtr_add);
 
+extern int check_auth_field(int key_id,
+                            char *key,
+                            void *packet,
+                            int pckt_len,
+                            void *auth_data_pos,
+                            int auth_data_len);
+
 
 
 
