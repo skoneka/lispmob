@@ -431,7 +431,7 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
  *        0                   1                   2                   3
  *        0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *       |Type=3 |P|            Reserved               |M| Record Count  |
+ *       |Type=3 |P| |I|R|      Reserved               |M| Record Count  |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *       |                         Nonce . . .                           |
  *       +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -457,17 +457,24 @@ typedef struct lispd_pkt_mapping_record_locator_t_ {
  *   +-> +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 
+//modified by arnatal
+/* I and R bit are defined in NAT tarversal draft*/
+
 typedef struct lispd_pkt_map_register_t_ {
 #ifdef LITTLE_ENDIAN
-    uint8_t  reserved1:3;
+    uint8_t  rbit:1;
+    uint8_t  ibit:1;
+    uint8_t  reserved1:1;
     uint8_t  proxy_reply:1;
     uint8_t  lisp_type:4;
 #else
     uint8_t  lisp_type:4;
     uint8_t  proxy_reply:1;
-    uint8_t  reserved1:3;
+    uint8_t  reserved1:1;
+    uint8_t  ibit:1;
+    uint8_t  rbit:1;
 #endif
-    uint8_t reserved2;
+    uint8_t reserved2;	
 #ifdef LITTLE_ENDIAN
     uint8_t map_notify:1;
     uint8_t reserved3:7;
@@ -931,7 +938,7 @@ typedef struct lisp_encap_control_hdr {
   0                   1                   2                   3
   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  |Type=7 |              Reserved                                 |
+  |Type=7 |R|            Reserved                                 |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   |                         Nonce . . .                           |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -947,11 +954,8 @@ typedef struct lisp_encap_control_hdr {
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   |                          EID-prefix                           |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  |           AFI = 16387         |    Rsvd1      |     Flags     |
+  |             AFI = 0           |   <Nothing Follows AFI=0>     |
   +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  |    Type = 0     |     Rsvd2   |             4 + n             |
-  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-
                 LISP Info-Request Message Format
 
  */
@@ -995,12 +999,15 @@ typedef struct lispd_pkt_info_nat_eid_t_ {
  */
 
 typedef struct lispd_pkt_info_request_lcaf_t_ {
+    uint16_t afi;
+/*
     uint16_t lcaf_afi;
     uint8_t reserved1;
     uint8_t flags;
     uint8_t lcaf_type;
     uint8_t reserved2;
     uint16_t length;
+*/ 
 } PACKED lispd_pkt_info_request_lcaf_t;
 
 

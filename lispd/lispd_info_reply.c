@@ -94,6 +94,7 @@ lisp_addr_list_t *rtr_rloc_list;
     /* Extract the Private ETR RLOC */
 
     *private_etr_rloc = extract_lisp_address(ptr);
+    /* In this case this function should return afi = 0 */
 
     cumulative_add_length +=
         get_addr_len(private_etr_rloc->afi) + FIELD_AFI_LEN;
@@ -169,7 +170,7 @@ int afi;
     uint64_t nonce;
     uint16_t key_id;
     uint16_t auth_data_len;
-    uint8_t auth_data[LISP_SHA1_AUTH_DATA_LEN];
+	uint8_t *auth_data_pos;
 
     uint32_t ttl;
     uint8_t eid_mask_len;
@@ -182,6 +183,8 @@ int afi;
     lisp_addr_t eid_prefix;
 
     int hdr_len;
+
+	unsigned int pckt_len;
 
     lisp_addr_t global_etr_rloc;
     lisp_addr_t ms_rloc;
@@ -203,11 +206,13 @@ int afi;
                                       &nonce,
                                       &key_id,
                                       &auth_data_len,
-                                      (uint8_t **) &auth_data,
+                                      &auth_data_pos,
                                       &ttl,
                                       &eid_mask_len,
                                       &eid_prefix);
 
+
+	
 
     irp_lcaf =
         (lispd_pkt_info_reply_lcaf_t *) CO(irp,hdr_len + get_addr_len(eid_prefix.afi));
@@ -227,6 +232,27 @@ int afi;
         return (ERROR);
     }
 
+
+    pckt_len = hdr_len+
+               sizeof(lispd_pkt_info_reply_lcaf_t)+
+               get_addr_len(eid_prefix.afi)+
+               lcaf_length - 4; 
+               /* These 4 bytes are already in sizeof(lispd_pkt_info_reply_lcaf_t) */
+
+    if(ERROR == check_auth_field(key_id,
+                                 map_servers->key,
+                                 (void *) packet,
+                                 pckt_len,
+                                 auth_data_pos,
+                                 auth_data_len)){
+									 
+        syslog(LOG_DAEMON, "Info-Reply: Error checking auth data field");
+        return(ERROR);
+    }else{
+        syslog(LOG_DAEMON, "Info-Reply: Correct auth data field checking");
+    }
+
+	
 	/* Select the best RTR from the list retrieved from the Info-Reply*/
 
     rtr = *select_best_rtr_from_rtr_list(&rtr_rloc_list);

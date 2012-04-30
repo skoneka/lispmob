@@ -133,11 +133,17 @@ uint32_t *pkt_len;
 
     memset(irp_lcaf, 0, lcaf_hdr_len);
 
+    /* Previous draft implementation */
     /* Fill lcaf info-request fields */
+    /*
     irp_lcaf->lcaf_afi = htons(LISP_AFI_LCAF);
     irp_lcaf->flags = 0;
     irp_lcaf->lcaf_type = LISP_LCAF_NULL;
     irp_lcaf->length = htons(0);
+    */
+ 
+    /* New draft implementation */
+	irp_lcaf->afi = htons(0); /* AFI = 0 */
 
     /* Return the len of the packet */
     *pkt_len = irp_len;

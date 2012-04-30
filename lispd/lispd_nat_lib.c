@@ -435,7 +435,9 @@ int auth_data_len;
               (const void *) key,
               strlen(key),
               (uchar *) packet,
-              pckt_len, (uchar *) auth_data_pos, &md_len)) {
+              pckt_len, 
+              (uchar *) auth_data_pos, 
+              &md_len)) {
         syslog(LOG_DAEMON, "HMAC failed");
 
         return (ERROR);
@@ -444,6 +446,64 @@ int auth_data_len;
 }
 
 
+int check_sha1_hmac(key,packet,pckt_len,auth_data_pos,auth_data_len)
+
+char *key;
+void *packet;
+int pckt_len;
+void *auth_data_pos;
+int auth_data_len;
+
+{
+    unsigned int md_len;    /* Length of the HMAC output.  */
+   
+    uint8_t* auth_data_copy;
+
+    auth_data_copy = (uint8_t *) malloc(auth_data_len*sizeof(uint8_t));
+
+    /* Copy the data to another location and put 0's on the auth data field of the packet */
+    memcpy(auth_data_copy,auth_data_pos,auth_data_len);	
+    memset(auth_data_pos,0,auth_data_len);
+	
+    if (!HMAC((const EVP_MD *) EVP_sha1(),
+              (const void *) key,
+              strlen(key),
+              (uchar *) packet,
+              pckt_len,
+              (uchar *) auth_data_pos,
+              &md_len)) {
+        syslog(LOG_DAEMON, "SHA1 HMAC failed");
+        return(ERROR);
+    }
+    if ((strncmp((char *)auth_data_pos, (char *)auth_data_copy, (size_t)auth_data_len)) == 0)
+        return(NO_ERROR);
+    else
+        return(ERROR);
+}
+ 
+int check_auth_field(key_id,key,packet,pckt_len,auth_data_pos,auth_data_len)
+
+int key_id;
+char *key;
+void *packet;
+int pckt_len;
+void *auth_data_pos;
+int auth_data_len;
+
+{
+	
+    switch (key_id){
+        default:      /* Only sha1 hmac supported at the moment */
+            return(check_sha1_hmac(key,
+                                   packet,
+                                   pckt_len,
+                                   auth_data_pos,
+                                   auth_data_len));
+
+    }
+
+
+}
 
 /*
  * Get source port and address.
@@ -928,6 +988,12 @@ char *key;
     /* Map Server proxy reply */
     map_register_pkt->proxy_reply = proxy_reply;
 
+    /* R bit always 1 for Map Registers sent to the RTR */
+    map_register_pkt->rbit = 1;
+
+    /* MN does not use xTR-ID for the momment */
+    map_register_pkt->ibit = 0;
+	
     complete_auth_fields(key_id,
                          &(map_register_pkt->key_id),
                          key,
@@ -935,14 +1001,13 @@ char *key;
                          map_register_pkt_len,
                          &(map_register_pkt->auth_data));
 
-    ecm_map_register =
-        build_control_encap_pkt((uint8_t *) map_register_pkt,
-                                map_register_pkt_len,
-                                inner_addr_from,
-                                inner_addr_dest,
-                                inner_port_from,
-                                inner_port_dest,
-                                &ecm_map_register_len);
+    ecm_map_register = build_control_encap_pkt((uint8_t *) map_register_pkt,
+                                               map_register_pkt_len,
+                                               inner_addr_from,
+                                               inner_addr_dest,
+                                               inner_port_from,
+                                               inner_port_dest,
+                                               &ecm_map_register_len);
     free(map_register_pkt);
 
     if (ecm_map_register == NULL) {
