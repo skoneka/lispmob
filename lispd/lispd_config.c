@@ -498,7 +498,6 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
             CFG_INT("map-request-retries",  0, CFGF_NONE),
             CFG_INT("control-port",         0, CFGF_NONE),
             CFG_INT("debug",                0, CFGF_NONE),
-            CFG_INT("rloc-probing-interval",0, CFGF_NONE),
             CFG_STR_LIST("map-resolver",    0, CFGF_NONE),
             CFG_STR_LIST("proxy-itrs",      0, CFGF_NONE),
             CFG_END()
@@ -547,11 +546,11 @@ int handle_lispd_config_file(char * lispdconf_conf_file)
      *  RLOC Probing options
      */
 
-    cfg_t *dm = cfg_getnsec(cfg, "rloc-probing", 0);
+    cfg_t *rp = cfg_getnsec(cfg, "rloc-probing", 0);
 
-    probe_int = cfg_getint(dm, "rloc-probe-interval");
-    probe_retries = cfg_getint(dm, "rloc-probe-retries");
-    probe_retries_interval = cfg_getint(dm, "rloc-probe-retries-interval");
+    probe_int = cfg_getint(rp, "rloc-probe-interval");
+    probe_retries = cfg_getint(rp, "rloc-probe-retries");
+    probe_retries_interval = cfg_getint(rp, "rloc-probe-retries-interval");
 
     validate_rloc_probing_parameters (probe_int, probe_retries, probe_retries_interval);
 
