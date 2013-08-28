@@ -659,9 +659,10 @@ void process_link_status_change(
     iface_balancing_vectors_calc(iface);
 
     /* Reprograming SMR timer*/
-    if (smr_timer == NULL){
+    //if (smr_timer == NULL){
+        // workaround for segfaults on ifdown, ifup; possibly creates a resource leak
         smr_timer = create_timer (SMR_TIMER);
-    }
+    //}
     start_timer(smr_timer, LISPD_SMR_TIMEOUT,(timer_callback)init_smr, NULL);
 
 }
